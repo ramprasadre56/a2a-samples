@@ -29,6 +29,36 @@ from remote_agent_connection import RemoteAgentConnections, TaskUpdateCallback
 from timestamp_ext import TimestampExtension
 
 
+
+class DebugLiteLlm(LiteLlm):
+    def __init__(self, model: str):
+        super().__init__(model=model)
+        print(f"[DebugLiteLlm] Initialized with model: {model}")
+
+    def generate_content(self, *args, **kwargs):
+        print(f"[DebugLiteLlm] generate_content called with args: {args}, kwargs keys: {kwargs.keys()}")
+        try:
+            result = super().generate_content(*args, **kwargs)
+            print(f"[DebugLiteLlm] generate_content returned result: {result}")
+            return result
+        except Exception as e:
+            print(f"[DebugLiteLlm] generate_content failed: {e}")
+            raise e
+
+    async def generate_content_async(self, *args, **kwargs):
+        print(f"[DebugLiteLlm] generate_content_async called with args: {args}, kwargs keys: {kwargs.keys()}")
+        try:
+            result = await super().generate_content_async(*args, **kwargs)
+            print(f"[DebugLiteLlm] generate_content_async returned result: {result}")
+            return result
+        except Exception as e:
+            print(f"[DebugLiteLlm] generate_content_async failed: {e}")
+            raise e
+
+    def __call__(self, *args, **kwargs):
+        print(f"[DebugLiteLlm] called directly with args: {args}, kwargs: {kwargs.keys()}")
+        return super().__call__(*args, **kwargs)
+
 class HostAgent:
     """The host agent.
 
@@ -90,16 +120,20 @@ class HostAgent:
         self.agents = '\n'.join(agent_info)
 
     def create_agent(self) -> Agent:
-        # Read model selection from environment (defaults to ollama for free tier)
-        selected_model = os.getenv('SELECTED_MODEL', 'ollama')
+        # Read model selection from environment (defaults to gemini)
+        selected_model = os.getenv('SELECTED_MODEL', 'gemini')
+        print(f"[{self.__class__.__name__}] Creating agent with model selection: {selected_model}")
         
         if selected_model == 'gemini':
             # Use Gemini API (requires GOOGLE_API_KEY)
             model_name = os.getenv('GEMINI_MODEL', 'gemini-2.0-flash-001')
+            print(f"[{self.__class__.__name__}] Using Gemini model: {model_name}")
             model = Gemini(model=model_name)
         else:
             # Use Ollama with Gemma 3 (free, local)
             model_name = os.getenv('OLLAMA_MODEL', 'ollama/gemma3:1b')
+            print(f"[{self.__class__.__name__}] Using Ollama model: {model_name}")
+            # Use standard LiteLlm (Debug wrapper breaks async flow)
             model = LiteLlm(model=model_name)
         
         return Agent(
@@ -154,9 +188,17 @@ Current agent: {current_agent['active_agent']}
     def before_model_callback(
         self, callback_context: CallbackContext, llm_request
     ):
+        print("[HostAgent] before_model_callback")
         state = callback_context.state
         if 'session_active' not in state or not state['session_active']:
             state['session_active'] = True
+        
+        # Log the last message to see what the model is seeing (if available)
+        if hasattr(callback_context, 'history') and callback_context.history:
+            last_msg = callback_context.history[-1]
+            print(f"[HostAgent] Last message role: {last_msg.role}")
+            if last_msg.parts:
+                print(f"[HostAgent] Last message parts preview: {str(last_msg.parts[0])[:100]}")
 
     def list_remote_agents(self):
         """List the available remote agents you can use to delegate the task."""
@@ -192,12 +234,12 @@ Current agent: {current_agent['active_agent']}
         client = self.remote_agent_connections[agent_name]
         if not client:
             raise ValueError(f'Client not available for {agent_name}')
-        task_id = state.get('task_id', None)
+        
+        # Only reuse task_id if session is still active (task not completed)
+        session_active = state.get('session_active', False)
+        task_id = state.get('task_id', None) if session_active else None
         context_id = state.get('context_id', None)
-        message_id = state.get('message_id', None)
-        task: Task
-        if not message_id:
-            message_id = str(uuid.uuid4())
+        message_id = str(uuid.uuid4())  # Always use a new message_id
 
         request_message = Message(
             role=Role.user,

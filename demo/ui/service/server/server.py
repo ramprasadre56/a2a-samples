@@ -101,29 +101,36 @@ class ConversationServer:
         return CreateConversationResponse(result=c)
 
     async def _send_message(self, request: Request):
-        message_data = await request.json()
-        message = Message(**message_data['params'])
-        message = self.manager.sanitize_message(message)
-        loop = asyncio.get_event_loop()
-        if isinstance(self.manager, ADKHostManager):
-            t = threading.Thread(
-                target=lambda: cast(
-                    'ADKHostManager', self.manager
-                ).process_message_threadsafe(message, loop)
-            )
-        else:
-            t = threading.Thread(
-                target=lambda: asyncio.run(
-                    self.manager.process_message(message)
+        try:
+            message_data = await request.json()
+            print(f"[ConversationServer] Received _send_message request: {message_data.get('params', {}).get('message_id')}")
+            message = Message(**message_data['params'])
+            message = self.manager.sanitize_message(message)
+            loop = asyncio.get_event_loop()
+            if isinstance(self.manager, ADKHostManager):
+                print(f"[ConversationServer] Processing message threadsafe...")
+                t = threading.Thread(
+                    target=lambda: cast(
+                        'ADKHostManager', self.manager
+                    ).process_message_threadsafe(message, loop)
+                )
+            else:
+                print(f"[ConversationServer] Processing message in runner...")
+                t = threading.Thread(
+                    target=lambda: asyncio.run(
+                        self.manager.process_message(message)
+                    )
+                )
+            t.start()
+            return SendMessageResponse(
+                result=MessageInfo(
+                    message_id=message.message_id,
+                    context_id=message.context_id if message.context_id else '',
                 )
             )
-        t.start()
-        return SendMessageResponse(
-            result=MessageInfo(
-                message_id=message.message_id,
-                context_id=message.context_id if message.context_id else '',
-            )
-        )
+        except Exception as e:
+            print(f"[ConversationServer] Error in _send_message: {e}")
+            raise e
 
     async def _list_messages(self, request: Request):
         message_data = await request.json()

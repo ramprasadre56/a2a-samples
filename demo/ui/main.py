@@ -58,7 +58,10 @@ def on_load(e: me.LoadEvent):  # pylint: disable=unused-argument
 security_policy = me.SecurityPolicy(
     allowed_script_srcs=[
         'https://cdn.jsdelivr.net',
-    ]
+    ],
+    allowed_connect_srcs=[
+        'https://cdn.jsdelivr.net',
+    ],
 )
 
 

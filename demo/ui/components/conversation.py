@@ -29,6 +29,7 @@ def on_blur(e: me.InputBlurEvent):
 
 
 async def send_message(message: str, message_id: str = ''):
+    print(f"[ConversationComponent] send_message called with: {message}, id: {message_id}")
     state = me.state(PageState)
     app_state = me.state(AppState)
     c = next(
@@ -39,34 +40,51 @@ async def send_message(message: str, message_id: str = ''):
         ),
         None,
     )
+    print(f"[ConversationComponent] c (current conversation): {c}")
     if not c:
         print('Conversation id ', state.conversation_id, ' not found')
-    request = Message(
-        message_id=message_id,
-        context_id=state.conversation_id,
-        role=Role.user,
-        parts=[Part(root=TextPart(text=message))],
-    )
-    # Add message to state until refresh replaces it.
-    state_message = convert_message_to_state(request)
-    if not app_state.messages:
-        app_state.messages = []
-    app_state.messages.append(state_message)
-    conversation = next(
-        filter(
-            lambda x: c and x.conversation_id == c.conversation_id,
-            app_state.conversations,
-        ),
-        None,
-    )
-    if conversation:
-        conversation.message_ids.append(state_message.message_id)
-    await SendMessage(request)
+        # If conversation is not found, we might still want to try sending or return
+    
+    try:
+        request = Message(
+            message_id=message_id,
+            context_id=state.conversation_id,
+            role=Role.user,
+            parts=[Part(root=TextPart(text=message))],
+        )
+        print(f"[ConversationComponent] Created message object: {request.message_id}")
+
+        # Add message to state until refresh replaces it.
+        state_message = convert_message_to_state(request)
+        print(f"[ConversationComponent] Converted to state message: {state_message.message_id}")
+
+        if not app_state.messages:
+            app_state.messages = []
+        app_state.messages.append(state_message)
+        
+        conversation = next(
+            filter(
+                lambda x: c and x.conversation_id == c.conversation_id,
+                app_state.conversations,
+            ),
+            None,
+        )
+        if conversation:
+            conversation.message_ids.append(state_message.message_id)
+        
+        print(f"[ConversationComponent] Calling SendMessage service...")
+        await SendMessage(request)
+        print(f"[ConversationComponent] SendMessage service call finished.")
+    except Exception as e:
+        print(f"[ConversationComponent] Error in send_message: {e}")
+        import traceback
+        traceback.print_exc()
 
 
 async def send_message_enter(e: me.InputEnterEvent):  # pylint: disable=unused-argument
     """Send message handler"""
     yield
+    print("[ConversationComponent] Enter pressed")
     state = me.state(PageState)
     state.message_content = e.value
     app_state = me.state(AppState)
@@ -79,13 +97,20 @@ async def send_message_enter(e: me.InputEnterEvent):  # pylint: disable=unused-a
 
 async def send_message_button(e: me.ClickEvent):  # pylint: disable=unused-argument
     """Send message button handler"""
-    yield
-    state = me.state(PageState)
-    app_state = me.state(AppState)
-    message_id = str(uuid.uuid4())
-    app_state.background_tasks[message_id] = ''
-    await send_message(state.message_content, message_id)
-    yield
+    try:
+        yield
+        print("[ConversationComponent] Send button clicked", flush=True)
+        state = me.state(PageState)
+        app_state = me.state(AppState)
+        message_id = str(uuid.uuid4())
+        app_state.background_tasks[message_id] = ''
+        await send_message(state.message_content, message_id)
+        yield
+    except Exception as ex:
+        print(f"[ConversationComponent] CRITICAL ERROR in button handler: {ex}", flush=True)
+        import traceback
+        traceback.print_exc()
+        yield
 
 
 @me.component

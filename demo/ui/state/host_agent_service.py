@@ -33,11 +33,19 @@ from .state import (
 )
 
 
-server_url = 'http://localhost:12000'
 
+server_url = f"http://localhost:{os.getenv('A2A_UI_PORT', '12001')}"
+_shared_client = None
+
+def get_client() -> ConversationClient:
+    global _shared_client
+    if _shared_client is None:
+        print(f"[HostAgentService] Initializing shared ConversationClient for {server_url}")
+        _shared_client = ConversationClient(server_url)
+    return _shared_client
 
 async def ListConversations() -> list[Conversation]:
-    client = ConversationClient(server_url)
+    client = get_client()
     try:
         response = await client.list_conversation(ListConversationRequest())
         return response.result if response.result else []
@@ -47,32 +55,30 @@ async def ListConversations() -> list[Conversation]:
 
 
 async def SendMessage(message: Message) -> Message | MessageInfo | None:
-    client = ConversationClient(server_url)
+    print(f"[HostAgentService] Sending message to {server_url}: {message.message_id}")
+    client = get_client()
     try:
         response = await client.send_message(SendMessageRequest(params=message))
+        print(f"[HostAgentService] Response received: {response}")
         return response.result
     except Exception as e:
         traceback.print_exc()
-        print('Failed to send message: ', e)
+        print(f"[HostAgentService] Failed to send message: {e}")
     return None
 
 
 async def CreateConversation() -> Conversation:
-    client = ConversationClient(server_url)
+    client = get_client()
     try:
         response = await client.create_conversation(CreateConversationRequest())
-        return (
-            response.result
-            if response.result
-            else Conversation(conversation_id='', is_active=False)
-        )
+        return response.result if response.result else None
     except Exception as e:
         print('Failed to create conversation', e)
     return Conversation(conversation_id='', is_active=False)
 
 
 async def ListRemoteAgents():
-    client = ConversationClient(server_url)
+    client = get_client()
     try:
         response = await client.list_agents(ListAgentRequest())
         return response.result
@@ -81,7 +87,7 @@ async def ListRemoteAgents():
 
 
 async def AddRemoteAgent(path: str):
-    client = ConversationClient(server_url)
+    client = get_client()
     try:
         await client.register_agent(RegisterAgentRequest(params=path))
     except Exception as e:
@@ -89,7 +95,7 @@ async def AddRemoteAgent(path: str):
 
 
 async def GetEvents() -> list[Event]:
-    client = ConversationClient(server_url)
+    client = get_client()
     try:
         response = await client.get_events(GetEventRequest())
         return response.result if response.result else []
@@ -112,7 +118,7 @@ def GetMessageAliases():
 
 
 async def GetTasks():
-    client = ConversationClient(server_url)
+    client = get_client()
     try:
         response = await client.list_tasks(ListTaskRequest())
         return response.result
@@ -122,7 +128,7 @@ async def GetTasks():
 
 
 async def ListMessages(conversation_id: str) -> list[Message]:
-    client = ConversationClient(server_url)
+    client = get_client()
     try:
         response = await client.list_messages(
             ListMessageRequest(params=conversation_id)

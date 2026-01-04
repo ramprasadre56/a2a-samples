@@ -150,81 +150,102 @@ class ADKHostManager(ApplicationManager):
         return message
 
     async def process_message(self, message: Message):
-        message_id = message.message_id
-        if message_id:
-            self._pending_message_ids.append(message_id)
-        context_id = message.context_id
-        conversation = self.get_conversation(context_id)
-        self._messages.append(message)
-        if conversation:
-            conversation.messages.append(message)
-        self.add_event(
-            Event(
-                id=str(uuid.uuid4()),
-                actor='user',
-                content=message,
-                timestamp=datetime.datetime.utcnow().timestamp(),
-            )
-        )
-        final_event = None
-        # Determine if a task is to be resumed.
-        session = await self._session_service.get_session(
-            app_name='A2A', user_id='test_user', session_id=context_id
-        )
-        task_id = message.task_id
-        # Update state must happen in an event
-        state_update = {
-            'task_id': task_id,
-            'context_id': context_id,
-            'message_id': message.message_id,
-        }
-        # Need to upsert session state now, only way is to append an event.
-        await self._session_service.append_event(
-            session,
-            ADKEvent(
-                id=ADKEvent.new_id(),
-                author='host_agent',
-                invocation_id=ADKEvent.new_id(),
-                actions=ADKEventActions(state_delta=state_update),
-            ),
-        )
-        async for event in self._host_runner.run_async(
-            user_id=self.user_id,
-            session_id=context_id,
-            new_message=self.adk_content_from_message(message),
-        ):
-            if (
-                event.actions.state_delta
-                and 'task_id' in event.actions.state_delta
-            ):
-                task_id = event.actions.state_delta['task_id']
+        try:
+            print(f"[ADKHostManager] Processing message: {message.message_id}")
+            message_id = message.message_id
+            if message_id:
+                self._pending_message_ids.append(message_id)
+            context_id = message.context_id
+            conversation = self.get_conversation(context_id)
+            self._messages.append(message)
+            if conversation:
+                conversation.messages.append(message)
+            
+            print(f"[ADKHostManager] Context ID: {context_id}")
             self.add_event(
                 Event(
-                    id=event.id,
-                    actor=event.author,
-                    content=await self.adk_content_to_message(
-                        event.content, context_id, task_id
-                    ),
-                    timestamp=event.timestamp,
+                    id=str(uuid.uuid4()),
+                    actor='user',
+                    content=message,
+                    timestamp=datetime.datetime.utcnow().timestamp(),
                 )
             )
-            final_event = event
-        response: Message | None = None
-        if final_event:
-            if (
-                final_event.actions.state_delta
-                and 'task_id' in final_event.actions.state_delta
-            ):
-                task_id = event.actions.state_delta['task_id']
-            final_event.content.role = 'model'
-            response = await self.adk_content_to_message(
-                final_event.content, context_id, task_id
+            print("[ADKHostManager] Event added, getting session...")
+            final_event = None
+            # Determine if a task is to be resumed.
+            session = await self._session_service.get_session(
+                app_name='A2A', user_id='test_user', session_id=context_id
             )
-            self._messages.append(response)
+            print(f"[ADKHostManager] Session retrieved: {session.id if session else 'None'}")
+            task_id = message.task_id
+            # Update state must happen in an event
+            state_update = {
+                'task_id': task_id,
+                'context_id': context_id,
+                'message_id': message.message_id,
+            }
+            # Need to upsert session state now, only way is to append an event.
+            await self._session_service.append_event(
+                session,
+                ADKEvent(
+                    id=ADKEvent.new_id(),
+                    author='host_agent',
+                    invocation_id=ADKEvent.new_id(),
+                    actions=ADKEventActions(state_delta=state_update),
+                ),
+            )
+            print("[ADKHostManager] Session event appended. Starting agent run_async loop...")
+            
+            # Conversion debug
+            try:
+                content = self.adk_content_from_message(message)
+                print(f"[ADKHostManager] Converted content: {content}")
+            except Exception as e:
+                print(f"[ADKHostManager] Content conversion failed: {e}")
+                raise e
 
-        if conversation and response:
-            conversation.messages.append(response)
-        self._pending_message_ids.remove(message_id)
+            async for event in self._host_runner.run_async(
+                user_id=self.user_id,
+                session_id=context_id,
+                new_message=content,
+            ):
+                print(f"[ADKHostManager] Received event from agent: {event.id} ({event.author})")
+                if (
+                    event.actions.state_delta
+                    and 'task_id' in event.actions.state_delta
+                ):
+                    task_id = event.actions.state_delta['task_id']
+                self.add_event(
+                    Event(
+                        id=event.id,
+                        actor=event.author,
+                        content=await self.adk_content_to_message(
+                            event.content, context_id, task_id
+                        ),
+                        timestamp=event.timestamp,
+                    )
+                )
+                final_event = event
+            response: Message | None = None
+            if final_event:
+                if (
+                    final_event.actions.state_delta
+                    and 'task_id' in final_event.actions.state_delta
+                ):
+                    task_id = event.actions.state_delta['task_id']
+                final_event.content.role = 'model'
+                response = await self.adk_content_to_message(
+                    final_event.content, context_id, task_id
+                )
+                self._messages.append(response)
+
+            if conversation and response:
+                conversation.messages.append(response)
+            self._pending_message_ids.remove(message_id)
+        except Exception:
+            import traceback
+            traceback.print_exc()
+            print("[ADKHostManager] CRASHED in process_message")
 
     def add_task(self, task: Task):
         self._tasks.append(task)
