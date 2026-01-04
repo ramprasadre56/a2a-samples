@@ -176,6 +176,12 @@ class ADKHostManager(ApplicationManager):
             session = await self._session_service.get_session(
                 app_name='A2A', user_id='test_user', session_id=context_id
             )
+            # Create session if it doesn't exist
+            if session is None:
+                print(f"[ADKHostManager] Session not found, creating new session for context_id: {context_id}")
+                session = await self._session_service.create_session(
+                    app_name='A2A', user_id='test_user', session_id=context_id
+                )
             print(f"[ADKHostManager] Session retrieved: {session.id if session else 'None'}")
             task_id = message.task_id
             # Update state must happen in an event
