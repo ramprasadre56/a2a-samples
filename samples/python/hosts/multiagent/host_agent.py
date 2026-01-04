@@ -21,6 +21,7 @@ from a2a.types import (
 from google.adk import Agent
 from google.adk.agents.callback_context import CallbackContext
 from google.adk.agents.readonly_context import ReadonlyContext
+from google.adk.models import Gemini
 from google.adk.models.lite_llm import LiteLlm
 from google.adk.tools.tool_context import ToolContext
 from google.genai import types
@@ -89,11 +90,20 @@ class HostAgent:
         self.agents = '\n'.join(agent_info)
 
     def create_agent(self) -> Agent:
-        LITELLM_MODEL = os.getenv(
-            'LITELLM_MODEL', 'gemini/gemini-2.0-flash-001'
-        )
+        # Read model selection from environment (defaults to ollama for free tier)
+        selected_model = os.getenv('SELECTED_MODEL', 'ollama')
+        
+        if selected_model == 'gemini':
+            # Use Gemini API (requires GOOGLE_API_KEY)
+            model_name = os.getenv('GEMINI_MODEL', 'gemini-2.0-flash-001')
+            model = Gemini(model=model_name)
+        else:
+            # Use Ollama with Gemma 3 (free, local)
+            model_name = os.getenv('OLLAMA_MODEL', 'ollama/gemma3:1b')
+            model = LiteLlm(model=model_name)
+        
         return Agent(
-            model=LiteLlm(model=LITELLM_MODEL),
+            model=model,
             name='host_agent',
             instruction=self.root_instruction,
             before_model_callback=self.before_model_callback,

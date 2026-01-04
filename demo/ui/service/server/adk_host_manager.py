@@ -124,6 +124,14 @@ class ADKHostManager(ApplicationManager):
                 # Map of message id to task id
                 self._task_map = {}
 
+    def update_model(self, model_type: str):
+        """Update the model selection (ollama or gemini) and reinitialize"""
+        os.environ['SELECTED_MODEL'] = model_type
+        # Reinitialize host with new model
+        self._initialize_host()
+        # Reset task map
+        self._task_map = {}
+
     def sanitize_message(self, message: Message) -> Message:
         if message.context_id:
             conversation = self.get_conversation(message.context_id)

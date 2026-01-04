@@ -186,6 +186,26 @@ async def UpdateApiKey(api_key: str):
         return False
 
 
+def UpdateModel(model_type: str):
+    """Update the model selection (ollama or gemini)"""
+    import httpx
+
+    try:
+        # Set the environment variable for model selection
+        os.environ['SELECTED_MODEL'] = model_type
+        
+        # Call the update API endpoint
+        with httpx.Client() as client:
+            response = client.post(
+                f'{server_url}/model/update', json={'model_type': model_type}
+            )
+            response.raise_for_status()
+        return True
+    except Exception as e:
+        print('Failed to update model: ', e)
+        return False
+
+
 def convert_message_to_state(message: Message) -> StateMessage:
     if not message:
         return StateMessage()

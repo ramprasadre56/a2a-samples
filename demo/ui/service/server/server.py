@@ -82,11 +82,19 @@ class ConversationServer:
         app.add_api_route(
             '/api_key/update', self._update_api_key, methods=['POST']
         )
+        app.add_api_route(
+            '/model/update', self._update_model, methods=['POST']
+        )
 
     # Update API key in manager
     def update_api_key(self, api_key: str):
         if isinstance(self.manager, ADKHostManager):
             self.manager.update_api_key(api_key)
+
+    # Update model in manager
+    def update_model(self, model_type: str):
+        if isinstance(self.manager, ADKHostManager):
+            self.manager.update_model(model_type)
 
     async def _create_conversation(self):
         c = await self.manager.create_conversation()
@@ -208,5 +216,20 @@ class ConversationServer:
                 self.update_api_key(api_key)
                 return {'status': 'success'}
             return {'status': 'error', 'message': 'No API key provided'}
+        except Exception as e:
+            return {'status': 'error', 'message': str(e)}
+
+    async def _update_model(self, request: Request):
+        """Update the model selection"""
+        try:
+            data = await request.json()
+            model_type = data.get('model_type', 'ollama')
+
+            # Update environment variable
+            os.environ['SELECTED_MODEL'] = model_type
+            
+            # Update in the manager
+            self.update_model(model_type)
+            return {'status': 'success', 'model': model_type}
         except Exception as e:
             return {'status': 'error', 'message': str(e)}

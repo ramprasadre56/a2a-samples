@@ -94,6 +94,8 @@ class AppState:
     api_key: str = ''
     uses_vertex_ai: bool = False
     api_key_dialog_open: bool = False
+    # Model selection: 'gemini' or 'ollama'
+    selected_model: str = 'ollama'  # Default to free Ollama
 
 
 @me.stateclass

@@ -1,10 +1,11 @@
 import asyncio
+import os
 
 import mesop as me
 
 from components.header import header
 from components.page_scaffold import page_frame, page_scaffold
-from state.host_agent_service import UpdateApiKey
+from state.host_agent_service import UpdateApiKey, UpdateModel
 from state.state import AppState, SettingsState
 
 
@@ -16,6 +17,15 @@ def on_selection_change_output_types(e: me.SelectSelectionChangeEvent):
 def on_api_key_change(e: me.InputBlurEvent):
     s = me.state(AppState)
     s.api_key = e.value
+
+
+def on_model_change(e: me.SelectSelectionChangeEvent):
+    """Handle model selection change"""
+    s = me.state(AppState)
+    if e.values:
+        s.selected_model = e.values[0]
+        # Update the backend model
+        UpdateModel(s.selected_model)
 
 
 @me.stateclass
@@ -148,6 +158,55 @@ def settings_page_content():
                         style=me.Style(margin=me.Margin(top=10, bottom=10))
                     ):
                         me.divider()
+
+                # Model Selection Section
+                with me.box(
+                    style=me.Style(
+                        display='flex',
+                        flex_direction='column',
+                        margin=me.Margin(bottom=30),
+                    )
+                ):
+                    me.text(
+                        'AI Model',
+                        type='headline-6',
+                        style=me.Style(
+                            margin=me.Margin(bottom=15),
+                            font_family='Google Sans',
+                        ),
+                    )
+                    me.select(
+                        label='Select Model',
+                        options=[
+                            me.SelectOption(
+                                label='🆓 Gemma 3 1B (Ollama - Free, Local)',
+                                value='ollama'
+                            ),
+                            me.SelectOption(
+                                label='☁️ Gemini 2.0 Flash (API Key Required)',
+                                value='gemini'
+                            ),
+                        ],
+                        on_selection_change=on_model_change,
+                        style=me.Style(width=400),
+                        appearance='outline',
+                        value=[app_state.selected_model],
+                    )
+                    me.text(
+                        'Ollama uses local Gemma 3 model (free, no API key needed). '
+                        'Gemini requires a Google API key.',
+                        style=me.Style(
+                            font_size='12px',
+                            color=me.theme_var('on-surface-variant'),
+                            margin=me.Margin(top=8),
+                        ),
+                    )
+
+                # Add spacing instead of divider with style
+                with me.box(
+                    style=me.Style(margin=me.Margin(top=10, bottom=10))
+                ):
+                    me.divider()
 
                 # Output Types Section
                 me.select(
