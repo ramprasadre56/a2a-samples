@@ -36,7 +36,24 @@ class State(rx.State):
     # Agent state
     agents: List[Agent] = []
     new_agent_url: str = ""
+    new_agent_auth_type: str = "none"  # "none", "api_key", "bearer_token"
+    new_agent_auth_value: str = ""
+    new_agent_custom_headers: str = ""  # JSON string
     show_agent_dialog: bool = False
+    show_advanced_options: bool = False
+    
+    # UI state - Copilot style
+    sidebar_collapsed: bool = False
+    selected_agent_id: Optional[str] = None
+    active_nav: str = "chat"  # "chat", "agents", "settings"
+    
+    # Auth state - Google Sign-in
+    is_logged_in: bool = False
+    user_name: str = ""
+    user_email: str = ""
+    user_avatar: str = ""
+    show_login_dialog: bool = False
+    show_user_menu: bool = False
     
     # API Key for Gemini
     api_key: str = ""
@@ -72,6 +89,11 @@ class State(rx.State):
         yield
         
         try:
+            # Ensure API key is set in environment before processing
+            import os
+            if self.api_key.strip():
+                os.environ["GOOGLE_API_KEY"] = self.api_key.strip()
+            
             # Process message directly via host agent service
             service = get_host_agent_service()
             result = await service.process_message(
@@ -236,3 +258,50 @@ class State(rx.State):
     def toggle_api_key_dialog(self):
         """Toggle the API key dialog."""
         self.show_api_key_dialog = not self.show_api_key_dialog
+    
+    @rx.event
+    def toggle_sidebar(self):
+        """Toggle the sidebar collapsed state."""
+        self.sidebar_collapsed = not self.sidebar_collapsed
+    
+    @rx.event
+    def set_active_nav(self, nav: str):
+        """Set the active navigation item."""
+        self.active_nav = nav
+    
+    @rx.event
+    async def remove_agent(self, agent_url: str):
+        """Remove a registered agent by URL."""
+        self.agents = [a for a in self.agents if a.url != agent_url]
+        # Note: In a real implementation, you'd also unregister from the host agent service
+    
+    @rx.event
+    def toggle_login_dialog(self):
+        """Toggle the login dialog visibility."""
+        self.show_login_dialog = not self.show_login_dialog
+    
+    @rx.event
+    def toggle_user_menu(self):
+        """Toggle the user dropdown menu."""
+        self.show_user_menu = not self.show_user_menu
+    
+    @rx.event
+    async def google_sign_in(self):
+        """Mock Google Sign-in - simulates successful login.
+        In production, this would redirect to Google OAuth flow.
+        """
+        self.is_logged_in = True
+        self.user_name = "RamPrasad"
+        self.user_email = "ramprasade66@gmail.com"
+        self.user_avatar = "RP"
+        self.show_login_dialog = False
+        self.show_user_menu = False
+    
+    @rx.event
+    def sign_out(self):
+        """Sign out the current user."""
+        self.is_logged_in = False
+        self.user_name = ""
+        self.user_email = ""
+        self.user_avatar = ""
+        self.show_user_menu = False
