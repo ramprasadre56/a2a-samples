@@ -199,8 +199,13 @@ class State(rx.State):
             result = await service.register_agent(self.new_agent_url)
             
             if result.get("success"):
+                # Reset all form fields
                 self.new_agent_url = ""
+                self.new_agent_auth_type = "none"
+                self.new_agent_auth_value = ""
+                self.new_agent_custom_headers = ""
                 self.show_agent_dialog = False
+                self.show_advanced_options = False
                 await self.refresh_agents()
             else:
                 self.error_message = f"Failed to register: {result.get('error', 'Unknown error')}"
@@ -211,6 +216,18 @@ class State(rx.State):
     def toggle_agent_dialog(self):
         """Toggle the add agent dialog."""
         self.show_agent_dialog = not self.show_agent_dialog
+        if not self.show_agent_dialog:
+            # Reset form when closing
+            self.new_agent_url = ""
+            self.new_agent_auth_type = "none"
+            self.new_agent_auth_value = ""
+            self.new_agent_custom_headers = ""
+            self.show_advanced_options = False
+    
+    @rx.event
+    def toggle_advanced_options(self):
+        """Toggle advanced options visibility."""
+        self.show_advanced_options = not self.show_advanced_options
     
     @rx.event
     def clear_error(self):

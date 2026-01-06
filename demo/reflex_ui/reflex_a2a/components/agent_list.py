@@ -117,7 +117,7 @@ def agent_tile(agent: Agent) -> rx.Component:
 
 
 def add_agent_dialog() -> rx.Component:
-    """Dialog for adding a new agent with improved styling."""
+    """Enhanced dialog for adding a new agent with auth and advanced options."""
     return rx.dialog.root(
         rx.dialog.trigger(
             rx.button(
@@ -132,6 +132,7 @@ def add_agent_dialog() -> rx.Component:
         ),
         rx.dialog.content(
             rx.vstack(
+                # Header
                 rx.hstack(
                     rx.box(
                         rx.icon("plus-circle", size=20, color="white"),
@@ -139,18 +140,21 @@ def add_agent_dialog() -> rx.Component:
                         padding="10px",
                         border_radius="12px",
                     ),
-                    rx.dialog.title("Add Remote Agent", size="5"),
+                    rx.dialog.title("Register Remote Agent", size="5"),
                     spacing="3",
                     align="center",
                 ),
                 rx.dialog.description(
-                    "Enter the URL of the A2A-compatible agent you want to register. The agent must be running and accessible.",
+                    "Configure the agent connection settings for production use.",
                     size="2",
                     color="#64748b",
                 ),
-                rx.box(
+                
+                # Agent URL Section
+                rx.vstack(
+                    rx.text("Agent URL", size="2", weight="medium", color="#374151"),
                     rx.input(
-                        placeholder="http://localhost:9999",
+                        placeholder="https://api.example.com or http://localhost:9999",
                         value=State.new_agent_url,
                         on_change=State.set_new_agent_url,
                         width="100%",
@@ -160,8 +164,106 @@ def add_agent_dialog() -> rx.Component:
                             "border": "1px solid #e2e8f0",
                         },
                     ),
+                    rx.text(
+                        "The agent's base URL. Must expose /.well-known/agent.json",
+                        size="1",
+                        color="#9ca3af",
+                    ),
+                    spacing="1",
                     width="100%",
+                    align="start",
                 ),
+                
+                # Authentication Section
+                rx.vstack(
+                    rx.text("Authentication", size="2", weight="medium", color="#374151"),
+                    rx.select(
+                        ["None", "API Key", "Bearer Token"],
+                        value=rx.cond(
+                            State.new_agent_auth_type == "none",
+                            "None",
+                            rx.cond(
+                                State.new_agent_auth_type == "api_key",
+                                "API Key",
+                                "Bearer Token"
+                            )
+                        ),
+                        on_change=lambda v: State.set_new_agent_auth_type(
+                            rx.cond(v == "None", "none", rx.cond(v == "API Key", "api_key", "bearer_token"))
+                        ),
+                        width="100%",
+                        size="3",
+                    ),
+                    rx.cond(
+                        State.new_agent_auth_type != "none",
+                        rx.input(
+                            placeholder=rx.cond(
+                                State.new_agent_auth_type == "api_key",
+                                "Enter API Key...",
+                                "Enter Bearer Token..."
+                            ),
+                            value=State.new_agent_auth_value,
+                            on_change=State.set_new_agent_auth_value,
+                            type="password",
+                            width="100%",
+                            size="3",
+                            style={
+                                "background": "#f8fafc",
+                                "border": "1px solid #e2e8f0",
+                            },
+                        ),
+                        rx.fragment(),
+                    ),
+                    spacing="2",
+                    width="100%",
+                    align="start",
+                ),
+                
+                # Advanced Options Toggle
+                rx.hstack(
+                    rx.icon(
+                        rx.cond(State.show_advanced_options, "chevron-down", "chevron-right"),
+                        size=16,
+                        color="#6b7280",
+                    ),
+                    rx.text("Advanced Options", size="2", color="#6b7280"),
+                    on_click=State.toggle_advanced_options,
+                    cursor="pointer",
+                    width="100%",
+                    spacing="2",
+                    align="center",
+                    style={"_hover": {"color": "#374151"}},
+                ),
+                
+                # Advanced Options Content
+                rx.cond(
+                    State.show_advanced_options,
+                    rx.vstack(
+                        rx.text("Custom Headers (JSON)", size="2", weight="medium", color="#374151"),
+                        rx.text_area(
+                            placeholder='{"X-Custom-Header": "value"}',
+                            value=State.new_agent_custom_headers,
+                            on_change=State.set_new_agent_custom_headers,
+                            width="100%",
+                            rows="3",
+                            style={
+                                "background": "#f8fafc",
+                                "border": "1px solid #e2e8f0",
+                                "font_family": "monospace",
+                                "font_size": "12px",
+                            },
+                        ),
+                        spacing="2",
+                        width="100%",
+                        align="start",
+                        padding="12px",
+                        background="#f9fafb",
+                        border_radius="8px",
+                    ),
+                    rx.fragment(),
+                ),
+                
+                # Action Buttons
                 rx.hstack(
                     rx.dialog.close(
                         rx.button(
@@ -186,10 +288,10 @@ def add_agent_dialog() -> rx.Component:
                     justify="end",
                     width="100%",
                 ),
-                spacing="5",
+                spacing="4",
                 width="100%",
             ),
-            style={"max_width": "480px", "padding": "28px"},
+            style={"max_width": "520px", "padding": "24px"},
         ),
     )
 
