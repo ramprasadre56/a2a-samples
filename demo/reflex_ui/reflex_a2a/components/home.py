@@ -634,30 +634,35 @@ def quick_actions() -> rx.Component:
                         "transition": "all 0.2s ease",
                     },
                 ),
-                rx.box(
-                    rx.hstack(
-                        rx.icon("book-open", size=24, color="#f59e0b"),
-                        rx.vstack(
-                            rx.text("Documentation", weight="bold", color="#1e293b"),
-                            rx.text("Learn about A2A protocol", size="2", color="#64748b"),
-                            align="start",
-                            spacing="0",
+                rx.link(
+                    rx.box(
+                        rx.hstack(
+                            rx.icon("book-open", size=24, color="#f59e0b"),
+                            rx.vstack(
+                                rx.text("Documentation", weight="bold", color="#1e293b"),
+                                rx.text("Learn about A2A protocol", size="2", color="#64748b"),
+                                align="start",
+                                spacing="0",
+                            ),
+                            spacing="4",
+                            align="center",
                         ),
-                        spacing="4",
-                        align="center",
-                    ),
-                    padding="20px",
-                    background="white",
-                    border_radius="16px",
-                    border="1px solid #e2e8f0",
-                    cursor="pointer",
-                    style={
-                        "_hover": {
-                            "border_color": "#f59e0b",
-                            "box_shadow": "0 4px 16px rgba(245, 158, 11, 0.1)",
+                        padding="20px",
+                        background="white",
+                        border_radius="16px",
+                        border="1px solid #e2e8f0",
+                        cursor="pointer",
+                        style={
+                            "_hover": {
+                                "border_color": "#f59e0b",
+                                "box_shadow": "0 4px 16px rgba(245, 158, 11, 0.1)",
+                            },
+                            "transition": "all 0.2s ease",
                         },
-                        "transition": "all 0.2s ease",
-                    },
+                    ),
+                    href="https://a2a-protocol.org/latest/",
+                    is_external=True,
+                    style={"text_decoration": "none"},
                 ),
                 columns="3",
                 spacing="4",
@@ -695,7 +700,7 @@ def footer() -> rx.Component:
                 ),
                 rx.link(
                     rx.text("Documentation", color="rgba(255,255,255,0.8)"),
-                    href="https://google-a2a.github.io/A2A/",
+                    href="https://a2a-protocol.org/latest/",
                     is_external=True,
                 ),
                 spacing="6",

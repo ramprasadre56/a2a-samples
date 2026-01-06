@@ -182,25 +182,30 @@ def copilot_sidebar() -> rx.Component:
         rx.vstack(
             # Logo and collapse button
             rx.hstack(
-                rx.hstack(
-                    rx.box(
-                        rx.icon("sparkles", size=24, color="white"),
-                        background="linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-                        padding="8px",
-                        border_radius="12px",
-                    ),
-                    rx.cond(
-                        ~State.sidebar_collapsed,
-                        rx.heading(
-                            "A2A Copilot",
-                            size="4",
-                            weight="bold",
-                            color="#1e293b",
+                rx.link(
+                    rx.hstack(
+                        rx.box(
+                            rx.icon("sparkles", size=24, color="white"),
+                            background="linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+                            padding="8px",
+                            border_radius="12px",
                         ),
-                        rx.fragment(),
+                        rx.cond(
+                            ~State.sidebar_collapsed,
+                            rx.heading(
+                                "A2A Copilot",
+                                size="4",
+                                weight="bold",
+                                color="#1e293b",
+                            ),
+                            rx.fragment(),
+                        ),
+                        spacing="3",
+                        align="center",
                     ),
-                    spacing="3",
-                    align="center",
+                    href="/",
+                    on_click=State.set_active_nav("chat"),
+                    style={"text_decoration": "none", "cursor": "pointer"},
                 ),
                 rx.cond(
                     ~State.sidebar_collapsed,
