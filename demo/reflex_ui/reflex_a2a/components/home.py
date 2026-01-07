@@ -463,8 +463,6 @@ def multi_language_section() -> rx.Component:
             rx.hstack(
                 language_badge("Python", "#3776ab"),
                 language_badge("JavaScript", "#f7df1e"),
-                language_badge("Go", "#00add8"),
-                language_badge("Java", "#ed8b00"),
                 language_badge(".NET", "#512bd4"),
                 spacing="3",
                 wrap="wrap",
