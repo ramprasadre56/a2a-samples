@@ -48,6 +48,7 @@ class EmbeddedHostAgent:
     def __init__(self):
         self.remote_agents: Dict[str, AgentCard] = {}
         self.remote_agent_connections: Dict[str, A2AClient] = {}
+        self.agent_urls: Dict[str, str] = {}  # agent_name -> url for raw HTTP fallback
         self._agents_info: str = "No agents registered yet."
         # Track active task IDs per agent for multi-turn conversations
         self.active_tasks: Dict[str, str] = {}  # agent_name -> task_id
@@ -56,6 +57,7 @@ class EmbeddedHostAgent:
         """Register a remote agent."""
         self.remote_agents[card.name] = card
         self.remote_agent_connections[card.name] = A2AClient(httpx_client=httpx.AsyncClient(), url=url)
+        self.agent_urls[card.name] = url  # Store URL for fallback
         self._update_agents_info()
     
     def _update_agents_info(self):
@@ -117,8 +119,104 @@ class EmbeddedHostAgent:
                 params=params
             )
             print(f"[EmbeddedHostAgent] Sending message to {agent_name}...")
-            response = await client.send_message(request)
-            print(f"[EmbeddedHostAgent] Got response type: {type(response)}")
+            
+            # Try using SDK first
+            try:
+                response = await client.send_message(request)
+                print(f"[EmbeddedHostAgent] Got response type: {type(response)}")
+            except Exception as sdk_error:
+                # SDK validation failed - try raw HTTP request for JS agent compatibility
+                print(f"[EmbeddedHostAgent] SDK error, trying raw HTTP: {sdk_error}")
+                agent_url = self.agent_urls.get(agent_name, "http://localhost:41242")
+                
+                async with httpx.AsyncClient() as http_client:
+                    raw_response = await http_client.post(
+                        f"{agent_url}",
+                        json=request.model_dump(mode='json', exclude_none=True),
+                        headers={"Content-Type": "application/json"},
+                        timeout=60.0
+                    )
+                    if raw_response.status_code == 200:
+                        data = raw_response.json()
+                        print(f"[EmbeddedHostAgent] Raw response keys: {data.keys() if isinstance(data, dict) else type(data)}")
+                        
+                        # Extract from response
+                        if isinstance(data, dict):
+                            result_data = data.get('result', data)
+                            
+                            # Get task ID for polling if present
+                            task_id = result_data.get('id') if isinstance(result_data, dict) else None
+                            
+                            # Check for artifacts in the response
+                            artifacts = result_data.get('artifacts', []) if isinstance(result_data, dict) else []
+                            if artifacts:
+                                artifact_texts = []
+                                for artifact in artifacts:
+                                    if isinstance(artifact, dict) and 'parts' in artifact:
+                                        for part in artifact['parts']:
+                                            if isinstance(part, dict) and 'text' in part:
+                                                artifact_texts.append(f"**File: {artifact.get('name', 'unknown')}**\n```\n{part['text']}\n```")
+                                if artifact_texts:
+                                    return "\n\n".join(artifact_texts)
+                            
+                            # If task_id present, poll for completed task with artifacts
+                            if task_id:
+                                import asyncio
+                                for _ in range(10):  # Poll up to 10 times
+                                    await asyncio.sleep(1)
+                                    try:
+                                        task_response = await http_client.get(
+                                            f"{agent_url}/tasks/{task_id}",
+                                            timeout=10.0
+                                        )
+                                        if task_response.status_code == 200:
+                                            task_data = task_response.json()
+                                            print(f"[EmbeddedHostAgent] Task poll response: {str(task_data)[:300]}...")
+                                            task_result = task_data.get('result', task_data)
+                                            
+                                            # Check task status
+                                            status = task_result.get('status', {}) if isinstance(task_result, dict) else {}
+                                            state = status.get('state', '')
+                                            
+                                            # Get artifacts
+                                            task_artifacts = task_result.get('artifacts', []) if isinstance(task_result, dict) else []
+                                            if task_artifacts:
+                                                artifact_texts = []
+                                                for artifact in task_artifacts:
+                                                    if isinstance(artifact, dict) and 'parts' in artifact:
+                                                        for part in artifact['parts']:
+                                                            if isinstance(part, dict) and 'text' in part:
+                                                                artifact_texts.append(f"**File: {artifact.get('name', 'unknown')}**\n```\n{part['text']}\n```")
+                                                if artifact_texts:
+                                                    return "\n\n".join(artifact_texts)
+                                            
+                                            # Check status message
+                                            if status.get('message'):
+                                                msg = status['message']
+                                                parts = msg.get('parts', [])
+                                                for part in parts:
+                                                    if isinstance(part, dict) and 'text' in part:
+                                                        return part['text']
+                                            
+                                            if state == 'completed':
+                                                return f"Task completed. Files generated: Check the Coder Agent output."
+                                    except Exception as poll_err:
+                                        print(f"[EmbeddedHostAgent] Poll error: {poll_err}")
+                            
+                            # Check for status.message.parts
+                            if isinstance(result_data, dict):
+                                status = result_data.get('status', {})
+                                if isinstance(status, dict) and 'message' in status:
+                                    msg = status['message']
+                                    if isinstance(msg, dict):
+                                        parts = msg.get('parts', [])
+                                        for part in parts:
+                                            if isinstance(part, dict) and 'text' in part:
+                                                return part['text']
+                            
+                        return f"Agent task submitted. Check agent logs for generated files."
+                    else:
+                        return f"Agent returned error: {raw_response.status_code}"
             
             # Handle SendMessageResponse wrapper
             if isinstance(response, SendMessageResponse):
@@ -385,15 +483,46 @@ class HostAgentService:
             await self.initialize()
         
         try:
-            # Fetch agent card using get_card() method
+            # Try using the A2A SDK first
             client = A2AClient(httpx_client=httpx.AsyncClient(), url=agent_url)
-            agent_card = await client.get_card()
+            try:
+                agent_card = await client.get_card()
+            except Exception as sdk_error:
+                # SDK failed - try alternative agent card URLs for cross-SDK compatibility
+                # Different SDKs use different endpoints:
+                # - Python SDK: /.well-known/agent-card.json
+                # - .NET SDK: /.well-known/agent.json
+                # - JS SDK: /.well-known/agent-card.json or /.well-known/agent.json
+                print(f"[HostAgentService] SDK get_card failed: {sdk_error}")
+                print("[HostAgentService] Trying alternative agent card endpoints...")
+                
+                agent_card = None
+                agent_card_urls = [
+                    f"{agent_url.rstrip('/')}/.well-known/agent.json",
+                    f"{agent_url.rstrip('/')}/.well-known/agent-card.json",
+                ]
+                
+                async with httpx.AsyncClient() as http_client:
+                    for card_url in agent_card_urls:
+                        try:
+                            response = await http_client.get(card_url, timeout=10.0)
+                            if response.status_code == 200:
+                                card_data = response.json()
+                                print(f"[HostAgentService] Got agent card from {card_url}")
+                                # Create AgentCard from dict
+                                agent_card = AgentCard.model_validate(card_data)
+                                break
+                        except Exception as e:
+                            print(f"[HostAgentService] Failed to fetch from {card_url}: {e}")
+                            continue
+                
+                if not agent_card:
+                    return {"success": False, "error": f"Could not fetch agent card from {agent_url}. Tried: {agent_card_urls}"}
             
             # Register with host agent
             self._host_agent.register_agent_card(agent_card, agent_url)
             
             # Recreate agent with updated tools
-            # Note: We need to recreate the runner to pick up updated instructions
             agent = self._host_agent.create_agent()
             self._runner = Runner(
                 app_name='A2A',

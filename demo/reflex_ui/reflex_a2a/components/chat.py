@@ -223,6 +223,7 @@ def empty_chat_state() -> rx.Component:
                         style={
                             "background": "#f8fafc",
                             "border": "1px solid #e2e8f0",
+                            "color": "#1e293b",
                         },
                     ),
                     rx.button(
@@ -303,6 +304,7 @@ def chat_input() -> rx.Component:
                         "background": "#f8fafc",
                         "border": "1px solid #e2e8f0",
                         "padding_left": "20px",
+                        "color": "#1e293b",
                         "_focus": {
                             "border_color": "#667eea",
                             "box_shadow": "0 0 0 3px rgba(102, 126, 234, 0.1)",

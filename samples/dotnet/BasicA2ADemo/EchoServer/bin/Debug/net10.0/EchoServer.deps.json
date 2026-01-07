@@ -1,0 +1,60 @@
+{
+  "runtimeTarget": {
+    "name": ".NETCoreApp,Version=v10.0",
+    "signature": ""
+  },
+  "compilationOptions": {},
+  "targets": {
+    ".NETCoreApp,Version=v10.0": {
+      "EchoServer/1.0.0": {
+        "dependencies": {
+          "A2A": "0.1.0-preview.2",
+          "A2A.AspNetCore": "0.1.0-preview.2"
+        },
+        "runtime": {
+          "EchoServer.dll": {}
+        }
+      },
+      "A2A/0.1.0-preview.2": {
+        "runtime": {
+          "lib/net9.0/A2A.dll": {
+            "assemblyVersion": "0.1.0.0",
+            "fileVersion": "0.1.0.0"
+          }
+        }
+      },
+      "A2A.AspNetCore/0.1.0-preview.2": {
+        "dependencies": {
+          "A2A": "0.1.0-preview.2"
+        },
+        "runtime": {
+          "lib/net9.0/A2A.AspNetCore.dll": {
+            "assemblyVersion": "0.1.0.0",
+            "fileVersion": "0.1.0.0"
+          }
+        }
+      }
+    }
+  },
+  "libraries": {
+    "EchoServer/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "A2A/0.1.0-preview.2": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-MxVGjFtpwXasgQBe8dWvy7GNCrrSdwv24juz1ecUFMfNpXtphjR0TCMfwAV18agHr1gXb8t7nnPh93yCzsFr4w==",
+      "path": "a2a/0.1.0-preview.2",
+      "hashPath": "a2a.0.1.0-preview.2.nupkg.sha512"
+    },
+    "A2A.AspNetCore/0.1.0-preview.2": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-MkM9nHiUiXxMNBEGVsfc31SgrT8sFVHMRXk3VhE4+xRTfQZTbOOBheSSZrUHQX/2djtwOxAsS28UMcTElncesg==",
+      "path": "a2a.aspnetcore/0.1.0-preview.2",
+      "hashPath": "a2a.aspnetcore.0.1.0-preview.2.nupkg.sha512"
+    }
+  }
+}

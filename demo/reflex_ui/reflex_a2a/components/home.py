@@ -1,5 +1,6 @@
 """Copilot-style landing page component for the A2A Demo."""
 import reflex as rx
+from reflex_google_auth import google_login
 from ..state import State
 
 
@@ -45,92 +46,13 @@ def dropdown_nav(text: str) -> rx.Component:
     )
 
 
-def google_sign_in_dialog() -> rx.Component:
-    """Google Sign-in button with dialog."""
-    return rx.dialog.root(
-        rx.dialog.trigger(
-            rx.button(
-                rx.hstack(
-                    rx.image(
-                        src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg",
-                        width="18px",
-                        height="18px",
-                    ),
-                    rx.text("Sign in", weight="medium"),
-                    spacing="2",
-                    align="center",
-                ),
-                size="2",
-                variant="outline",
-                style={
-                    "border_color": "#e2e8f0",
-                    "color": "#1e293b",
-                    "background": "white",
-                    "_hover": {
-                        "background": "#f8fafc",
-                        "border_color": "#667eea",
-                    },
-                },
-            ),
+def google_sign_in_button() -> rx.Component:
+    """Google Sign-in button using real OAuth via reflex-google-auth."""
+    return rx.box(
+        google_login(
+            on_success=State.on_success,
         ),
-        rx.dialog.content(
-            rx.vstack(
-                # Google logo
-                rx.center(
-                    rx.image(
-                        src="https://www.gstatic.com/images/branding/googlelogo/2x/googlelogo_color_272x92dp.png",
-                        width="120px",
-                    ),
-                    width="100%",
-                    padding_y="20px",
-                ),
-                rx.heading("Sign in", size="5", text_align="center"),
-                rx.text(
-                    "to continue to A2A Copilot",
-                    color="#64748b",
-                    size="2",
-                    text_align="center",
-                ),
-                rx.box(height="16px"),
-                # Sign in with Google button
-                rx.button(
-                    rx.hstack(
-                        rx.image(
-                            src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg",
-                            width="20px",
-                            height="20px",
-                        ),
-                        rx.text("Continue with Google", weight="medium"),
-                        spacing="3",
-                        align="center",
-                    ),
-                    width="100%",
-                    size="3",
-                    variant="outline",
-                    style={
-                        "border": "1px solid #e2e8f0",
-                        "color": "#1e293b",
-                        "background": "white",
-                        "padding": "12px 24px",
-                        "_hover": {
-                            "background": "#f8fafc",
-                        },
-                    },
-                    on_click=State.google_sign_in,
-                ),
-                rx.box(height="8px"),
-                rx.text(
-                    "By continuing, you agree to our Terms of Service",
-                    size="1",
-                    color="#94a3b8",
-                    text_align="center",
-                ),
-                spacing="2",
-                padding="24px",
-                width="100%",
-            ),
-            style={"max_width": "380px"},
-        ),
+        # Style wrapper to match the design
     )
 
 
@@ -215,14 +137,25 @@ def header_navigation() -> rx.Component:
                     rx.popover.root(
                         rx.popover.trigger(
                             rx.hstack(
-                                rx.avatar(
-                                    fallback=State.user_avatar,
-                                    size="2",
-                                    radius="full",
-                                    style={
-                                        "background": "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-                                        "cursor": "pointer",
-                                    },
+                                rx.cond(
+                                    State.user_picture != "",
+                                    rx.avatar(
+                                        src=State.user_picture,
+                                        size="2",
+                                        radius="full",
+                                        style={
+                                            "cursor": "pointer",
+                                        },
+                                    ),
+                                    rx.avatar(
+                                        fallback=State.user_avatar,
+                                        size="2",
+                                        radius="full",
+                                        style={
+                                            "background": "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+                                            "cursor": "pointer",
+                                        },
+                                    ),
                                 ),
                                 rx.icon("chevron-down", size=14, color="#64748b"),
                                 spacing="1",
@@ -233,12 +166,19 @@ def header_navigation() -> rx.Component:
                         rx.popover.content(
                             rx.vstack(
                                 rx.hstack(
-                                    rx.avatar(
-                                        fallback=State.user_avatar,
-                                        size="3",
-                                        style={
-                                            "background": "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-                                        },
+                                    rx.cond(
+                                        State.user_picture != "",
+                                        rx.avatar(
+                                            src=State.user_picture,
+                                            size="3",
+                                        ),
+                                        rx.avatar(
+                                            fallback=State.user_avatar,
+                                            size="3",
+                                            style={
+                                                "background": "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+                                            },
+                                        ),
                                     ),
                                     rx.vstack(
                                         rx.text(State.user_name, weight="bold", size="2"),
@@ -266,94 +206,8 @@ def header_navigation() -> rx.Component:
                             ),
                         ),
                     ),
-                    # Not logged in - show Google sign-in button with icon
-                    rx.dialog.root(
-                        rx.dialog.trigger(
-                            rx.button(
-                                rx.hstack(
-                                    rx.image(
-                                        src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg",
-                                        width="18px",
-                                        height="18px",
-                                    ),
-                                    rx.text("Sign in with Google", weight="medium"),
-                                    spacing="2",
-                                    align="center",
-                                ),
-                                size="2",
-                                variant="outline",
-                                style={
-                                    "border_color": "#e2e8f0",
-                                    "color": "#1e293b",
-                                    "background": "white",
-                                    "_hover": {
-                                        "background": "#f8fafc",
-                                        "border_color": "#667eea",
-                                    },
-                                },
-                            ),
-                        ),
-                        rx.dialog.content(
-                            rx.vstack(
-                                # Google logo
-                                rx.center(
-                                    rx.image(
-                                        src="https://www.gstatic.com/images/branding/googlelogo/2x/googlelogo_color_272x92dp.png",
-                                        width="120px",
-                                    ),
-                                    width="100%",
-                                    padding_y="20px",
-                                ),
-                                rx.heading("Sign in", size="5", text_align="center"),
-                                rx.text(
-                                    "to continue to A2A Copilot",
-                                    color="#64748b",
-                                    size="2",
-                                    text_align="center",
-                                ),
-                                rx.box(height="16px"),
-                                # Sign in with Google button
-                                rx.dialog.close(
-                                    rx.button(
-                                        rx.hstack(
-                                            rx.image(
-                                                src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg",
-                                                width="20px",
-                                                height="20px",
-                                            ),
-                                            rx.text("Continue with Google", weight="medium"),
-                                            spacing="3",
-                                            align="center",
-                                        ),
-                                        width="100%",
-                                        size="3",
-                                        variant="outline",
-                                        style={
-                                            "border": "1px solid #e2e8f0",
-                                            "color": "#1e293b",
-                                            "background": "white",
-                                            "padding": "12px 24px",
-                                            "_hover": {
-                                                "background": "#f8fafc",
-                                            },
-                                        },
-                                        on_click=State.google_sign_in,
-                                    ),
-                                ),
-                                rx.box(height="8px"),
-                                rx.text(
-                                    "By continuing, you agree to our Terms of Service",
-                                    size="1",
-                                    color="#94a3b8",
-                                    text_align="center",
-                                ),
-                                spacing="2",
-                                padding="24px",
-                                width="100%",
-                            ),
-                            style={"max_width": "380px"},
-                        ),
-                    ),
+                    # Not logged in - show real Google sign-in button
+                    google_sign_in_button(),
                 ),
                 spacing="3",
                 align="center",
@@ -573,6 +427,143 @@ def features_section() -> rx.Component:
     )
 
 
+def language_badge(lang: str, color: str) -> rx.Component:
+    """A badge showing a supported programming language."""
+    return rx.box(
+        rx.text(lang, size="2", weight="bold", color="white"),
+        background=color,
+        padding="8px 16px",
+        border_radius="full",
+        box_shadow=f"0 4px 12px {color}40",
+    )
+
+
+def multi_language_section() -> rx.Component:
+    """Section explaining multi-language agent support."""
+    return rx.box(
+        rx.vstack(
+            rx.hstack(
+                rx.icon("globe", size=32, color="#667eea"),
+                rx.heading(
+                    "Multi-Language Agent Support",
+                    size="7",
+                    weight="bold",
+                    color="#1e293b",
+                ),
+                spacing="3",
+                align="center",
+            ),
+            rx.text(
+                "The A2A protocol is language-agnostic. Connect agents written in any programming language!",
+                color="#64748b",
+                size="4",
+                text_align="center",
+                max_width="700px",
+            ),
+            rx.hstack(
+                language_badge("Python", "#3776ab"),
+                language_badge("JavaScript", "#f7df1e"),
+                language_badge("Go", "#00add8"),
+                language_badge("Java", "#ed8b00"),
+                language_badge(".NET", "#512bd4"),
+                spacing="3",
+                wrap="wrap",
+                justify="center",
+            ),
+            rx.box(
+                rx.vstack(
+                    rx.hstack(
+                        rx.icon("check-circle", size=20, color="#22c55e"),
+                        rx.text(
+                            "Any agent implementing A2A can connect",
+                            color="#334155",
+                            size="3",
+                        ),
+                        spacing="2",
+                        align="center",
+                    ),
+                    rx.hstack(
+                        rx.icon("check-circle", size=20, color="#22c55e"),
+                        rx.text(
+                            "Mix Python, JavaScript, Go agents in one system",
+                            color="#334155",
+                            size="3",
+                        ),
+                        spacing="2",
+                        align="center",
+                    ),
+                    rx.hstack(
+                        rx.icon("check-circle", size=20, color="#22c55e"),
+                        rx.text(
+                            "Protocol-based communication over HTTP",
+                            color="#334155",
+                            size="3",
+                        ),
+                        spacing="2",
+                        align="center",
+                    ),
+                    rx.hstack(
+                        rx.icon("check-circle", size=20, color="#22c55e"),
+                        rx.text(
+                            "Register remote agents by URL",
+                            color="#334155",
+                            size="3",
+                        ),
+                        spacing="2",
+                        align="center",
+                    ),
+                    spacing="3",
+                    align="start",
+                ),
+                background="white",
+                padding="24px 32px",
+                border_radius="16px",
+                border="1px solid #e2e8f0",
+                box_shadow="0 4px 16px rgba(0, 0, 0, 0.04)",
+                margin_top="20px",
+            ),
+            rx.link(
+                rx.box(
+                    rx.hstack(
+                        rx.icon("plus-circle", size=20, color="#667eea"),
+                        rx.text(
+                            "Register your remote agent and start testing with the host agent",
+                            color="#667eea",
+                            size="3",
+                            weight="medium",
+                        ),
+                        rx.icon("arrow-right", size=16, color="#667eea"),
+                        spacing="2",
+                        align="center",
+                        justify="center",
+                    ),
+                    background="rgba(102, 126, 234, 0.1)",
+                    padding="16px 24px",
+                    border_radius="12px",
+                    margin_top="16px",
+                    cursor="pointer",
+                    style={
+                        "_hover": {
+                            "background": "rgba(102, 126, 234, 0.2)",
+                        },
+                        "transition": "all 0.2s ease",
+                    },
+                ),
+                href="/agents",
+            ),
+            spacing="6",
+            align="center",
+            width="100%",
+            max_width="800px",
+            padding="80px 24px",
+        ),
+        background="white",
+        width="100%",
+        display="flex",
+        justify_content="center",
+    )
+
+
 def quick_actions() -> rx.Component:
     """Quick action buttons section."""
     return rx.box(
@@ -722,6 +713,7 @@ def landing_page() -> rx.Component:
         header_navigation(),
         hero_section(),
         features_section(),
+        multi_language_section(),
         quick_actions(),
         footer(),
         display="flex",

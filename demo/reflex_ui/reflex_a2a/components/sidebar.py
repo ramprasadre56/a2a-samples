@@ -244,6 +244,7 @@ def copilot_sidebar() -> rx.Component:
                         style={
                             "background": "#f8fafc",
                             "border": "1px solid #e2e8f0",
+                            "color": "#1e293b",
                         },
                     ),
                     padding_x="16px",

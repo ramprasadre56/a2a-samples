@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "dgSpecHash": "bNAmZ1cmJAI=",
+  "success": true,
+  "projectFilePath": "C:\\Users\\rampr\\Desktop\\ramprasadre56\\a2a-samples\\samples\\dotnet\\BasicA2ADemo\\CalculatorServer\\CalculatorServer.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\rampr\\.nuget\\packages\\a2a\\0.1.0-preview.2\\a2a.0.1.0-preview.2.nupkg.sha512",
+    "C:\\Users\\rampr\\.nuget\\packages\\a2a.aspnetcore\\0.1.0-preview.2\\a2a.aspnetcore.0.1.0-preview.2.nupkg.sha512"
+  ],
+  "logs": []
+}

@@ -1,0 +1,15 @@
+STDOUT:
+Warning: `reflex.plugins.sitemap.SitemapPlugin` plugin is enabled by default, 
+but not explicitly added to the config. If you want to use it, please add it to
+the `plugins` list in your config inside of `rxconfig.py`. To disable this 
+plugin, set `disable_plugins` to `['reflex.plugins.sitemap.SitemapPlugin']`.
+Warning: You are using reflex-hosting-cli version 0.1.59. A newer version 
+0.1.61 is available. Upgrade using: pip install --upgrade reflex-hosting-cli
+
+
+STDERR:
+C:\Users\rampr\AppData\Roaming\Python\Python314\site-packages\reflex\base.py:6: UserWarning: Core Pydantic V1 functionality isn't compatible with Python 3.14 or greater.
+  from pydantic.v1 import BaseModel
+
+
+RETURN CODE: 1

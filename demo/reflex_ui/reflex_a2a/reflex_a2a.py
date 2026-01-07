@@ -1,5 +1,6 @@
 """Main Reflex app for A2A Copilot Demo."""
 import reflex as rx
+from reflex_google_auth import google_oauth_provider
 from .state import State
 from .components.chat import chat_container
 from .components.agent_list import agent_list_container
@@ -9,7 +10,7 @@ from .components.sidebar import copilot_sidebar
 
 def index() -> rx.Component:
     """Landing page (home)."""
-    return landing_page()
+    return google_oauth_provider(landing_page())
 
 
 def chat_page() -> rx.Component:

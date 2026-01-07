@@ -6,6 +6,8 @@ import uuid
 import json
 from pydantic import BaseModel as PydanticBaseModel
 
+from reflex_google_auth import GoogleAuthState
+
 from .host_agent_service import get_host_agent_service
 
 
@@ -24,8 +26,8 @@ class Agent(PydanticBaseModel):
     url: str
 
 
-class State(rx.State):
-    """The main application state with integrated Host Agent."""
+class State(GoogleAuthState):
+    """The main application state with integrated Host Agent and Google Auth."""
     
     # Chat state
     messages: List[Message] = []
@@ -47,11 +49,7 @@ class State(rx.State):
     selected_agent_id: Optional[str] = None
     active_nav: str = "chat"  # "chat", "agents", "settings"
     
-    # Auth state - Google Sign-in
-    is_logged_in: bool = False
-    user_name: str = ""
-    user_email: str = ""
-    user_avatar: str = ""
+    # Auth UI state
     show_login_dialog: bool = False
     show_user_menu: bool = False
     
@@ -61,6 +59,46 @@ class State(rx.State):
     
     # Error handling
     error_message: str = ""
+    
+    # Computed properties for user info from Google OAuth
+    @rx.var
+    def is_logged_in(self) -> bool:
+        """Check if user is authenticated via Google OAuth."""
+        return self.token_is_valid
+    
+    @rx.var
+    def user_name(self) -> str:
+        """Get user's name from Google OAuth tokeninfo."""
+        if self.token_is_valid and self.tokeninfo:
+            return self.tokeninfo.get("name", "")
+        return ""
+    
+    @rx.var
+    def user_email(self) -> str:
+        """Get user's email from Google OAuth tokeninfo."""
+        if self.token_is_valid and self.tokeninfo:
+            return self.tokeninfo.get("email", "")
+        return ""
+    
+    @rx.var
+    def user_avatar(self) -> str:
+        """Get user's avatar initials from name."""
+        if self.token_is_valid and self.tokeninfo:
+            name = self.tokeninfo.get("name", "")
+            if name:
+                parts = name.split()
+                if len(parts) >= 2:
+                    return f"{parts[0][0]}{parts[1][0]}".upper()
+                elif len(parts) == 1:
+                    return parts[0][0].upper()
+        return "U"
+    
+    @rx.var
+    def user_picture(self) -> str:
+        """Get user's Google profile picture URL."""
+        if self.token_is_valid and self.tokeninfo:
+            return self.tokeninfo.get("picture", "")
+        return ""
     
     @rx.var
     def has_api_key(self) -> bool:
@@ -303,22 +341,8 @@ class State(rx.State):
         self.show_user_menu = not self.show_user_menu
     
     @rx.event
-    async def google_sign_in(self):
-        """Mock Google Sign-in - simulates successful login.
-        In production, this would redirect to Google OAuth flow.
-        """
-        self.is_logged_in = True
-        self.user_name = "RamPrasad"
-        self.user_email = "ramprasade66@gmail.com"
-        self.user_avatar = "RP"
-        self.show_login_dialog = False
-        self.show_user_menu = False
-    
-    @rx.event
     def sign_out(self):
-        """Sign out the current user."""
-        self.is_logged_in = False
-        self.user_name = ""
-        self.user_email = ""
-        self.user_avatar = ""
+        """Sign out the current user using Google OAuth logout."""
+        self.logout()  # GoogleAuthState's logout method
         self.show_user_menu = False
+
