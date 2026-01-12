@@ -9,35 +9,17 @@ import httpx
 from pydantic import BaseModel
 
 # Add python directory to path
-python_path = os.path.join(os.path.dirname(__file__), '../python')
-sys.path.insert(0, python_path)
-
-# Import A2A and service modules
-ADKHostManager = None
-RedisPersistence = None
+sys.path.append(os.path.join(os.path.dirname(__file__), '../python'))
 
 try:
     from service.server.adk_host_manager import ADKHostManager
-except ImportError as e:
-    print(f"ADKHostManager Import Error: {e}")
-
-try:
     from service.persistence import RedisPersistence
-except ImportError as e:
-    print(f"RedisPersistence Import Error: {e}")
-    # Create a dummy persistence class if Redis is not available
-    class RedisPersistence:
-        def __init__(self): pass
-        def save_agents(self, agents): pass
-        def load_agents(self): return []
-        def save_state(self, key, value): pass
-        def load_state(self, key): return None
-
-try:
     from a2a.types import Message, Part, TextPart, Role, AgentCard
 except ImportError as e:
-    print(f"A2A Types Import Error: {e}")
-    Message = Part = TextPart = Role = AgentCard = None
+    print(f"Import Error: {e}")
+    # Fallback to local import if structure is flattened in Vercel
+    sys.path.append(os.path.dirname(__file__))
+    # Retry logic or fail
 
 app = FastAPI(docs_url="/api/docs", openapi_url="/api/openapi.json")
 
@@ -111,82 +93,58 @@ async def save_state_background():
     persistence.save_state("host_manager", state)
 
 @app.post("/api/message")
-async def handle_message(request: MessageRequest, background_tasks: BackgroundTasks, req: Request):
-    print(f"[DEBUG] /api/message endpoint called")
-    print(f"[DEBUG] host_manager: {host_manager}")
-    print(f"[DEBUG] Message type: {Message}, Part type: {Part}, TextPart type: {TextPart}")
-    
-    # Check for API key in header and update host manager if provided
-    api_key_header = req.headers.get("X-API-Key") or req.headers.get("x-api-key")
-    if api_key_header and host_manager:
-        print(f"[DEBUG] Received API key from header, updating host manager")
-        host_manager.update_api_key(api_key_header)
-    
+async def handle_message(request: MessageRequest, background_tasks: BackgroundTasks):
     if not host_manager:
-        print("[ERROR] Host Manager not initialized!")
         raise HTTPException(status_code=500, detail="Host Manager not initialized")
 
-    print(f"[DEBUG] Received message: {request.message} context: {request.contextId}")
-    
-    # Generate contextId if not provided (required for session management)
-    import uuid
-    context_id = request.contextId or str(uuid.uuid4())
+    print(f"Received message: {request.message} context: {request.contextId}")
     
     # Create Message object
-    try:
-        msg = Message(
-            messageId=str(uuid.uuid4()),
-            parts=[Part(root=TextPart(text=request.message))],
-            role=Role.user,
-            contextId=context_id 
-        )
-        print(f"[DEBUG] Created message: {msg}")
-    except Exception as e:
-        print(f"[ERROR] Failed to create Message: {e}")
-        import traceback
-        traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"Failed to create message: {e}")
+    msg = Message(
+        parts=[Part(root=TextPart(text=request.message))],
+        role=Role.user,
+        context_id=request.contextId 
+    )
     
     # Process
     try:
-        print("[DEBUG] Calling host_manager.process_message...")
         await host_manager.process_message(msg)
-        print("[DEBUG] process_message completed successfully")
     except Exception as e:
-        print(f"[ERROR] Error processing message: {e}")
+        print(f"Error processing message: {e}")
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
     
     # Find Response
+    # Helper to find last agent message in context
     response_text = "I'm sorry, I couldn't process that."
-    new_context_id = context_id  # Use the generated context_id
+    new_context_id = request.contextId
     
-    print(f"[DEBUG] Looking for response in _messages (count: {len(host_manager._messages)})")
+    # Find the conversation
+    if request.contextId:
+        conv = host_manager.get_conversation(request.contextId)
+    else:
+        # If new conversation was created implicitly by process_message?
+        # process_message creates session if needed.
+        # But we need the context_id from the message we sent? 
+        # msg.context_id might be None.
+        # ADKHostManager uses context_id to find conversation.
+        # If context_id is None, sanitize_message?
+        pass
+
+    # Actually `process_message` logic:
+    # If context_id is None, it might fail or create new.
+    # Check `_messages` for the LAST message associated with this operation.
     
-    # Get the last non-user message as the response
+    # Simple heuristic: Get last message in `host_manager._messages`
     if host_manager._messages:
-        # Look for the last agent/model message
-        for msg in reversed(host_manager._messages):
-            print(f"[DEBUG] Checking message: role={msg.role}, parts={len(msg.parts) if msg.parts else 0}")
-            if msg.role != Role.user:
-                # Extract text from parts
-                if msg.parts:
-                    for part in msg.parts:
-                        # Try to get text from the part
-                        if hasattr(part, 'root') and hasattr(part.root, 'text'):
-                            if part.root.text:
-                                response_text = part.root.text
-                                break
-                        elif hasattr(part, 'text') and part.text:
-                            response_text = part.text
-                            break
-                # Get contextId (use camelCase alias)
-                new_context_id = getattr(msg, 'context_id', None) or getattr(msg, 'contextId', None) or request.contextId
-                print(f"[DEBUG] Found agent response: {response_text[:100]}...")
-                break
-    
-    print(f"[DEBUG] Final response: {response_text[:100]}...")
+        last_msg = host_manager._messages[-1]
+        if last_msg.role != Role.user:
+             # Extract text
+             parts = host_manager.adk_content_from_message(last_msg).parts
+             if parts:
+                 response_text = parts[0].text or "Received non-text response"
+             new_context_id = last_msg.context_id
     
     # Schedule Save
     background_tasks.add_task(save_state_background)
@@ -226,8 +184,8 @@ async def register_agent(request: AgentRequest, background_tasks: BackgroundTask
 
 # REDEFINING PATHS
 @app.post("/message")
-async def handle_message_root(request: MessageRequest, background_tasks: BackgroundTasks, req: Request):
-    return await handle_message(request, background_tasks, req)
+async def handle_message_root(request: MessageRequest, background_tasks: BackgroundTasks):
+    return await handle_message(request, background_tasks)
 
 @app.get("/agents")
 async def list_agents_root():
@@ -236,3 +194,4 @@ async def list_agents_root():
 @app.post("/agents")
 async def register_agent_root(request: AgentRequest, background_tasks: BackgroundTasks):
     return await register_agent(request, background_tasks)
+

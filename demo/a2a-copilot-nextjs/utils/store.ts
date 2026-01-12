@@ -51,12 +51,17 @@ export const useAppStore = create<AppState>((set, get) => ({
     showAgentDialog: false,
     sidebarCollapsed: false,
     activeNav: 'chat',
-    apiKey: '',
+    apiKey: typeof window !== 'undefined' ? localStorage.getItem('gemini_api_key') || '' : '',
     errorMessage: '',
 
     // Setters
     setCurrentInput: (input) => set({ currentInput: input }),
-    setApiKey: (key) => set({ apiKey: key }),
+    setApiKey: (key) => {
+        if (typeof window !== 'undefined') {
+            localStorage.setItem('gemini_api_key', key);
+        }
+        set({ apiKey: key });
+    },
     setNewAgentUrl: (url) => set({ newAgentUrl: url }),
     toggleSidebar: () => set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
     setActiveNav: (nav) => set({ activeNav: nav }),
